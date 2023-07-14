@@ -1,3 +1,11 @@
+'''
+Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+Date: 2023-07-05 14:50:01
+LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+LastEditTime: 2023-07-14 14:45:33
+FilePath: \ML\pdb_utils\pdb_utils.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+'''
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 from collections import defaultdict
@@ -9,6 +17,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import requests
 
 import numpy as np
+import pandas as pd
 from Bio.PDB import PDBParser, PDBIO
 from Bio.PDB.Structure import Structure as BStructure
 from Bio.PDB.Model import Model as BModel
@@ -26,7 +35,8 @@ def rotation_matrix_from_vectors(vec1, vec2):
     :param vec2: A 3d "destination" vector
     :return mat: A transform matrix (3x3) which when applied to vec1, aligns it with vec2.
     """
-    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 /
+                                                      np.linalg.norm(vec2)).reshape(3)
     v = np.cross(a, b)
     c = np.dot(a, b)
     s = np.linalg.norm(v)
@@ -39,8 +49,8 @@ def rotation_matrix_from_vectors(vec1, vec2):
 def gram_schmidt(vectors):
     basis = []
     for v in vectors:
-        w = v - np.sum([np.dot(v, b) * b  for b in basis], axis=0)
-        if (np.abs(w) > 1e-10).any():  
+        w = v - np.sum([np.dot(v, b) * b for b in basis], axis=0)
+        if (np.abs(w) > 1e-10).any():
             basis.append(w / np.linalg.norm(w))
     return np.array(basis)
 
@@ -67,19 +77,21 @@ class AminoAcid:
 class AminoAcidVocab:
     def __init__(self):
         self.PAD, self.SEP, self.UNK = '#', '/', '*'
-        self.BOA, self.BOH, self.BOL = '&', '+', '-' # begin of antigen, heavy chain, light chain
-        specials = [# special added (PAD)
-                (self.PAD, 'PAD'), (self.UNK, 'UNK'),  # for RefineGNN, pad is mask
-                (self.BOA, '<X>'), (self.BOH, '<H>'), (self.BOL, '<L>'), (self.SEP, '<E>')
-            ]
+        # begin of antigen, heavy chain, light chain
+        self.BOA, self.BOH, self.BOL = '&', '+', '-'
+        specials = [  # special added (PAD)
+            (self.PAD, 'PAD'), (self.UNK, 'UNK'),  # for RefineGNN, pad is mask
+            (self.BOA, '<X>'), (self.BOH,
+                                '<H>'), (self.BOL, '<L>'), (self.SEP, '<E>')
+        ]
         aas = [
-                ('G', 'GLY'), ('A', 'ALA'), ('V', 'VAL'), ('L', 'LEU'),
-                ('I', 'ILE'), ('F', 'PHE'), ('W', 'TRP'), ('Y', 'TYR'),
-                ('D', 'ASP'), ('H', 'HIS'), ('N', 'ASN'), ('E', 'GLU'),
-                ('K', 'LYS'), ('Q', 'GLN'), ('M', 'MET'), ('R', 'ARG'),
-                ('S', 'SER'), ('T', 'THR'), ('C', 'CYS'), ('P', 'PRO'),
-                ('U', 'SEC') # 21 aa for eukaryote
-            ]
+            ('G', 'GLY'), ('A', 'ALA'), ('V', 'VAL'), ('L', 'LEU'),
+            ('I', 'ILE'), ('F', 'PHE'), ('W', 'TRP'), ('Y', 'TYR'),
+            ('D', 'ASP'), ('H', 'HIS'), ('N', 'ASN'), ('E', 'GLU'),
+            ('K', 'LYS'), ('Q', 'GLN'), ('M', 'MET'), ('R', 'ARG'),
+            ('S', 'SER'), ('T', 'THR'), ('C', 'CYS'), ('P', 'PRO'),
+            ('U', 'SEC')  # 21 aa for eukaryote
+        ]
         _all = specials + aas
         self.amino_acids = [AminoAcid(symbol, abrv) for symbol, abrv in _all]
         self.symbol2idx, self.abrv2idx = {}, {}
@@ -89,7 +101,7 @@ class AminoAcidVocab:
             aa.idx = i
         self.special_mask = [1 for _ in specials] + [0 for _ in aas]
         self.side_chain_loaded = False
-    
+
     def load_side_chain_coord(self, path):
         self.side_chain_loaded = True
         return
@@ -97,7 +109,8 @@ class AminoAcidVocab:
         with open(path, 'r') as fin:
             coord = json.load(fin)
         for symbol in coord:
-            self.amino_acids[self.symbol_to_idx(symbol)].set_side_chain_coord(coord[symbol])
+            self.amino_acids[self.symbol_to_idx(
+                symbol)].set_side_chain_coord(coord[symbol])
             # print(f'{symbol} side chain information loaded')
         print(f'{len(coord)} side chain information loaded')
 
@@ -116,7 +129,7 @@ class AminoAcidVocab:
     def symbol_to_idx(self, symbol):
         symbol = symbol.upper()
         return self.symbol2idx.get(symbol, None)
-    
+
     def idx_to_symbol(self, idx):
         return self.amino_acids[idx].symbol
 
@@ -128,7 +141,7 @@ class AminoAcidVocab:
 
     def get_unk_idx(self):
         return self.symbol_to_idx(self.UNK)
-    
+
     def get_special_mask(self):
         return copy(self.special_mask)
 
@@ -152,7 +165,7 @@ VOCAB = AminoAcidVocab()
 
 def format_aa_abrv(abrv):  # special cases
     if abrv == 'MSE':
-        return 'MET' # substitue MSE with MET
+        return 'MET'  # substitue MSE with MET
     return abrv
 
 
@@ -172,11 +185,13 @@ class Residue:
         return deepcopy(self.coordinate)
 
     def get_backbone_coord_map(self) -> Dict[str, List]:
-        coord = { atom: self.coordinate[atom] for atom in self.coordinate if atom in ['CA', 'C', 'N', 'O'] }
+        coord = {atom: self.coordinate[atom] for atom in self.coordinate if atom in [
+            'CA', 'C', 'N', 'O']}
         return coord
 
     def get_side_chain_coord_map(self) -> Dict[str, List]:
-        coord = { atom: self.coordinate[atom] for atom in self.coordinate if atom not in ['CA', 'C', 'N', 'O'] }
+        coord = {atom: self.coordinate[atom] for atom in self.coordinate if atom not in [
+            'CA', 'C', 'N', 'O']}
         return coord
 
     def get_atom_names(self):
@@ -186,7 +201,8 @@ class Residue:
         return self.id
 
     def set_symbol(self, symbol):
-        assert VOCAB.symbol_to_abrv(symbol) is not None, f'{symbol} is not an amino acid'
+        assert VOCAB.symbol_to_abrv(
+            symbol) is not None, f'{symbol} is not an amino acid'
         self.symbol = symbol
 
     def set_coord(self, coord):
@@ -235,40 +251,24 @@ class Residue:
                 altloc=' ',
                 fullname=fullname,
                 serial_number=i,
-                element=atom[0]  # not considering symbols with 2 chars (e.g. FE, MG)
+                # not considering symbols with 2 chars (e.g. FE, MG)
+                element=atom[0]
             )
             residue.add(bio_atom)
         return residue
 
 
-class Peptide:
-    def __init__(self, _id, residues: List[Residue]):
+class Segment:
+    def __init__(self, _id: str, residues: List[Residue]):
+        self.id = _id
         self.residues = residues
         self.seq = ''
-        self.id = _id
         for residue in residues:
             self.seq += residue.get_symbol()
 
-    def set_id(self, _id):
-        self.id = _id
-
-    def get_id(self):
+    def get_segment_id(self):
         return self.id
 
-    def get_seq(self):
-        return self.seq
-
-    def get_span(self, i, j):  # [i, j)
-        i, j = max(i, 0), min(j, len(self.seq))
-        if j <= i:
-            residues = []
-        else:
-            residues = deepcopy(self.residues[i:j])
-        return Peptide(self.id, residues)
-
-    def get_residue(self, i):
-        return deepcopy(self.residues[i])
-    
     def get_ca_pos(self, i):
         return copy(self.residues[i].get_coord('CA'))
 
@@ -301,6 +301,35 @@ class Peptide:
             chain.add(residue.to_bio())
         return chain
 
+
+class Peptide:
+    def __init__(self, _id, segments: List[Segment]):
+        self.segments = segments
+        self.seq = ''
+        self.id = _id
+        for segment in segments:
+            self.seq += segment.get_segment_id()
+
+    def set_id(self, _id):
+        self.id = _id
+
+    def get_id(self):
+        return self.id
+
+    def get_seq(self):
+        return self.seq
+
+    def get_span(self, i, j):  # [i, j)
+        i, j = max(i, 0), min(j, len(self.seq))
+        if j <= i:
+            segments = []
+        else:
+            segments = deepcopy(self.segments[i:j])
+        return Peptide(self.id, segments)
+
+    def get_segment(self, i):
+        return deepcopy(self.segments[i])
+
     def __len__(self):
         return len(self.seq)
 
@@ -309,21 +338,45 @@ class Peptide:
 
 
 class Protein:
-    def __init__(self, pdb_id, peptides):
+    def __init__(self, pdb_id, peptides: List[Peptide]):
         self.pdb_id = pdb_id
         self.peptides = peptides
 
+    def from_metainfo(metainfo_path, pdb_id):
+        data = pd.read_csv(metainfo_path)
+        pdb_id = pdb_id.upper()
+        # print(pdb_id)
+        row = data.loc[data['pdb_code'] == pdb_id]
+        features = row.columns[row.columns.get_loc('N-term')+1:]
+        # print(row)
+        row = row[features]
+        row_dict = row.to_dict('records')[0]
+        row_dict_filtered = {k: v for k,
+                             v in row_dict.items() if str(v) != "Null"}
+        return list(features), row_dict_filtered
+
     @classmethod
-    def from_pdb(cls, pdb_path):
+    def from_pdb(cls, pdb_path, metainfo_path):
         parser = PDBParser(QUIET=True)
         structure = parser.get_structure('anonym', pdb_path)
         pdb_id = structure.header['idcode'].upper()
+        print("from pdb")
+        print(pdb_id)
         peptides = {}
+        segment_id_seq, metainfo = cls.from_metainfo(
+            metainfo_path, pdb_id)  # add
+
         for chain in structure.get_chains():
             _id = chain.get_id()
             residues = []
+            segments = []
+            i = 0
             has_non_residue = False
             for residue in chain:
+                end_number = int(metainfo[segment_id_seq[i+1]])
+
+                if i != len(segment_id_seq) - 2:  # Not End
+                    end_number -= 1
                 abrv = residue.get_resname()
                 hetero_flag, res_number, insert_code = residue.get_id()
                 if hetero_flag != ' ':
@@ -334,13 +387,24 @@ class Protein:
                     print(f'has non residue: {abrv}')
                     break
                 # filter Hs because not all data include them
-                atoms = { atom.get_id(): atom.get_coord() for atom in residue if atom.element != 'H' }
+                atoms = {atom.get_id(): atom.get_coord()
+                         for atom in residue if atom.element != 'H'}
+                # residues.append(Residue(
+                #     symbol, atoms, (res_number, insert_code)
+                # ))
                 residues.append(Residue(
                     symbol, atoms, (res_number, insert_code)
                 ))
+                # if j == len(segment_id_seq) - 1: # End
+
+                if res_number == end_number:
+                    segments.append(Segment(segment_id_seq[i], residues))
+                    i += 1
+                    residues = []
+
             if has_non_residue or len(residues) == 0:  # not a peptide
                 continue
-            peptides[_id] = Peptide(_id, residues)
+            peptides[_id] = Peptide(_id, segments)
         return cls(pdb_id, peptides)
 
     def get_id(self):
@@ -414,8 +478,8 @@ class AAComplex(Protein):  # Antibody-Antigen complex
     num_interface_residue = 48  # from PNAS, Jian Peng
 
     def __init__(self, pdb_id: str, peptides: Dict[str, Peptide], heavy_chain: str,
-                 light_chain: str, antigen_chains: List[str], numbering: str='imgt',
-                 cdr_pos: Optional[Dict[str, Tuple]]=None, skip_cal_interface=False):
+                 light_chain: str, antigen_chains: List[str], numbering: str = 'imgt',
+                 cdr_pos: Optional[Dict[str, Tuple]] = None, skip_cal_interface=False):
         '''
             heavy_chain: the id of heavy chain
             light_chain: the id of light chain
@@ -426,10 +490,11 @@ class AAComplex(Protein):  # Antibody-Antigen complex
         self.heavy_chain = heavy_chain
         self.light_chain = light_chain
         self.antigen_chains = copy(antigen_chains)
-    
+
         # antibody information
         if cdr_pos is None:
-            selected_peptides, self.cdr_pos = self._extract_antibody_info(peptides, numbering)
+            selected_peptides, self.cdr_pos = self._extract_antibody_info(
+                peptides, numbering)
         else:
             selected_peptides, self.cdr_pos = {}, deepcopy(cdr_pos)
             for chain_name in [heavy_chain, light_chain]:
@@ -464,7 +529,8 @@ class AAComplex(Protein):  # Antibody-Antigen complex
                 # 118: ['PHE', 'TRP']
             }
         else:
-            raise NotImplementedError(f'Numbering scheme {numbering} not implemented')
+            raise NotImplementedError(
+                f'Numbering scheme {numbering} not implemented')
 
         selected_peptides, cdr_pos = {}, {}
         for c, chain_name in zip(['H', 'L'], [self.heavy_chain, self.light_chain]):
@@ -475,7 +541,7 @@ class AAComplex(Protein):  # Antibody-Antigen complex
                     chain = peptides[_name]
                     break
             if chain is None:
-                continue           
+                continue
             res_type = ''
             for i in range(len(chain)):
                 residue = chain.get_residue(i)
@@ -495,14 +561,16 @@ class AAComplex(Protein):  # Antibody-Antigen complex
             for cdr in ['1', '2', '3']:
                 cdr_start, cdr_end = res_type.find(cdr), res_type.rfind(cdr)
                 if cdr_start == -1:
-                    raise ValueError(f'cdr {cdr} not found, residue type: {res_type}')
+                    raise ValueError(
+                        f'cdr {cdr} not found, residue type: {res_type}')
                 start, end = min(start, cdr_start), max(end, cdr_end)
                 cdr_pos[f'CDR-{c}{cdr}'] = (cdr_start, cdr_end)
             for cdr in ['1', '2', '3']:
                 cdr = f'CDR-{c}{cdr}'
                 cdr_start, cdr_end = cdr_pos[cdr]
                 cdr_pos[cdr] = (cdr_start - start, cdr_end - start)
-            chain = chain.get_span(start, end + 1)  # the length may exceed 130 because of inserted amino acids
+            # the length may exceed 130 because of inserted amino acids
+            chain = chain.get_span(start, end + 1)
             chain.set_id(chain_name)
             selected_peptides[chain_name] = chain
 
@@ -512,7 +580,8 @@ class AAComplex(Protein):  # Antibody-Antigen complex
         antigen_chains = self.get_antigen_chains()
         antigen_names = [peptide.get_id() for peptide in antigen_chains]
         antibody_chains = [self.get_heavy_chain(), self.get_light_chain()]
-        antibody_chains = [chain for chain in antibody_chains if chain is not None]
+        antibody_chains = [
+            chain for chain in antibody_chains if chain is not None]
         antibody_names = [chain.get_id() for chain in antibody_chains]
         coord = {}
         for name, chain in zip(antigen_names + antibody_names, antigen_chains + antibody_chains):
@@ -521,7 +590,8 @@ class AAComplex(Protein):  # Antibody-Antigen complex
                 try:
                     coord[name]['x'].append(chain.get_ca_pos(i))
                 except KeyError:
-                    print_log(f'{self.pdb_id}, chain {chain.get_id()}, residue at {chain.get_residue(i).get_id()} has no ca coordination, fill with other atoms')
+                    print_log(
+                        f'{self.pdb_id}, chain {chain.get_id()}, residue at {chain.get_residue(i).get_id()} has no ca coordination, fill with other atoms')
                     coord_map = chain.get_residue(i).get_coord_map()
                     atom = list(coord_map.keys())[0]
                     coord[name]['x'].append(coord_map[atom])
@@ -537,7 +607,7 @@ class AAComplex(Protein):  # Antibody-Antigen complex
             # coord[name]['i'] = np.array(coord[name]['i'])
 
         # calculate distance
-        min_dists = { name: [] for name in antigen_names }
+        min_dists = {name: [] for name in antigen_names}
         for name in antigen_names:
             xa = coord[name]['x']
             for ab_name in antibody_names:
@@ -545,7 +615,7 @@ class AAComplex(Protein):  # Antibody-Antigen complex
                 if len(xb) == 0:  # for single-domain antibodies
                     continue
                 dist = np.linalg.norm(xa[:, None, :] - xb[None, :, :], axis=-1)
-                min_dist = np.min(dist, axis=1) # [num_ag_residue]
+                min_dist = np.min(dist, axis=1)  # [num_ag_residue]
                 min_dists[name].append(min_dist)
                 # _is, _js = np.nonzero(dist <= self.threshold)
                 # _is, _js = coord[name]['i'][_is], coord[ab_name]['i'][_js]
@@ -605,9 +675,11 @@ class AAComplex(Protein):  # Antibody-Antigen complex
         if not len(chain):
             return chain
         if interface_only:
-            raise NotImplementedError('get heavy chain interface not implemented')
+            raise NotImplementedError(
+                'get heavy chain interface not implemented')
             spans = self.antibody_interface[self.heavy_chain]
-            chain = Peptide(chain.get_id(), [chain.get_residue(i) for i in spans])
+            chain = Peptide(chain.get_id(), [
+                            chain.get_residue(i) for i in spans])
         return chain
 
     def get_light_chain(self, interface_only=False) -> Union[Peptide, List[Peptide]]:
@@ -615,12 +687,14 @@ class AAComplex(Protein):  # Antibody-Antigen complex
         if not len(chain):
             return chain
         if interface_only:
-            raise NotImplementedError('get light chain interface not implemented')
+            raise NotImplementedError(
+                'get light chain interface not implemented')
             spans = self.antibody_interface[self.light_chain]
             chain = [chain.get_span(start, end + 1) for start, end in spans]
         return chain
 
-    def get_antigen_chains(self, interface_only=False, cdr=None) -> List[Peptide]: # H/L + 1/2/3, None for the whole antibody
+    # H/L + 1/2/3, None for the whole antibody
+    def get_antigen_chains(self, interface_only=False, cdr=None) -> List[Peptide]:
         chains = [self.get_chain(name) for name in self.antigen_chains]
         if interface_only:
             new_chains = []
@@ -633,11 +707,13 @@ class AAComplex(Protein):  # Antibody-Antigen complex
                     spans = self.antigen_cdr_interface.get(name, [])
                 # for span in spans:
                 #     new_chains.append(chain.get_span(span[0], span[1] + 1))
-                new_chains.append(Peptide(chain.get_id(), [chain.get_residue(i) for i in spans]))
+                new_chains.append(
+                    Peptide(chain.get_id(), [chain.get_residue(i) for i in spans]))
             chains = [chain for chain in new_chains if len(chain)]
         return chains
 
-    def get_cdr_pos(self, cdr='H3'):  # H/L + 1/2/3, return [begin, end] position
+    # H/L + 1/2/3, return [begin, end] position
+    def get_cdr_pos(self, cdr='H3'):
         cdr = f'CDR-{cdr}'.upper()
         if cdr in self.cdr_pos:
             return self.cdr_pos[cdr]
@@ -672,7 +748,8 @@ def construct_side_chain_coord(pdb_dir, out_path):
         # if line > 20:
         #     break
         try:
-            protein = Protein.from_pdb(os.path.join(pdb_dir, f))
+            protein = Protein.from_pdb(
+                os.path.join(pdb_dir, f), './metainfo.csv')
         except Exception as e:
             print(f'{e}, skip')
             continue
@@ -689,10 +766,12 @@ def construct_side_chain_coord(pdb_dir, out_path):
                 side_chain_atom_coord = residue.get_side_chain_coord_map()
                 if len(side_chain_atom_coord) < 2:  # only one CB or no heavy atoms (GLY)
                     continue
-                center = [side_chain_atom_coord[atom] for atom in side_chain_atom_coord]
+                center = [side_chain_atom_coord[atom]
+                          for atom in side_chain_atom_coord]
                 center = np.mean(center, axis=0)
                 center_ca, n_ca = np.array([center, n]) - np.array([ca, ca])
-                X, ca = gram_schmidt([center_ca, n_ca, np.cross(center_ca, n_ca)]), np.array(ca)
+                X, ca = gram_schmidt(
+                    [center_ca, n_ca, np.cross(center_ca, n_ca)]), np.array(ca)
                 symbol = residue.get_symbol()
                 if symbol not in side_chain_coord:
                     side_chain_coord[symbol] = defaultdict(list)
